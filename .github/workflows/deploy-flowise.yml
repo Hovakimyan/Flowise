@@ -83,6 +83,8 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
+          timeout: 60s
+          command_timeout: 20m
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/v22.11.0/bin
             cd /var/www/flowise-ashoon
