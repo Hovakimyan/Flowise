@@ -12,31 +12,69 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: Set Node.js Version
         uses: actions/setup-node@v3
         with:
           node-version: 20
 
-      - name: Install PNPM
-        run: npm install -g pnpm
+      - name: Set Environment
+        run: echo "NODE_ENV=production" >> $GITHUB_ENV
 
-      - name: Install & Build
+      - name: Install & Build Locally
         run: |
           pnpm install --frozen-lockfile
           pnpm build
 
-      - name: Upload Code to VPS
+      - name: Preserve .well-known on Hostinger
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          script: |
+            if [ -d "/var/www/flowise-ashoon/.well-known" ]; then
+              cp -r /var/www/flowise-ashoon/.well-known /tmp/.flowise-well-known-backup
+            fi
+
+      - name: Clean Flowise Folder on Hostinger (except .well-known)
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          script: |
+            find /var/www/flowise-ashoon/* -not -path "/var/www/flowise-ashoon/.well-known/*" -delete
+
+      - name: Upload Files to Flowise Server
         uses: appleboy/scp-action@v0.1.6
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           source: "."
-          target: "/var/www/flowise-ashoon"
+          target: "/var/www/flowise-ashoon/"
           rm: true
-          strip_components: 0
+          exclude: |
+            .git/*
+            node_modules/*
+            .vscode/*
+            .DS_Store
+            .github/*
+            dist/cache/*
 
-      - name: Restart Flowise via PM2
+      - name: Restore .well-known
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          script: |
+            if [ -d "/tmp/.flowise-well-known-backup" ]; then
+              cp -r /tmp/.flowise-well-known-backup /var/www/flowise-ashoon/.well-known
+              rm -rf /tmp/.flowise-well-known-backup
+            fi
+
+      - name: Install & Start Flowise with PM2
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.HOST }}
@@ -46,5 +84,7 @@ jobs:
             cd /var/www/flowise-ashoon
             pnpm install --frozen-lockfile
             pnpm build
+            pm2 stop flowise || true
             pm2 delete flowise || true
             pm2 start pnpm --name flowise -- start
+            pm2 save
