@@ -92,5 +92,5 @@ jobs:
             pnpm build
             pm2 stop flowise || true
             pm2 delete flowise || true
-            pm2 start pnpm --name flowise -- start
+            PORT=8882 pm2 start pnpm --name flowise -- start
             pm2 save
