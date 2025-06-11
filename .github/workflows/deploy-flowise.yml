@@ -20,6 +20,9 @@ jobs:
       - name: Set Environment
         run: echo "NODE_ENV=production" >> $GITHUB_ENV
 
+      - name: Install PNPM Locally
+        run: npm install -g pnpm
+
       - name: Install & Build Locally
         run: |
           pnpm install --frozen-lockfile
